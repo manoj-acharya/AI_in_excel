@@ -1,0 +1,80 @@
+Sub ButtonRetrieve_Click()
+    
+    Dim ws As Worksheet
+    Set ws = ThisWorkbook.Sheets("AIBOT")
+    Dim data As String
+    data = ws.Cells(4, "C").Value
+    
+'    Retrieve API_KEY
+    Dim api_ws As Worksheet
+    Set api_ws = ThisWorkbook.Sheets("APIKEY")
+    api_key = api_ws.Cells(1, "B").Value
+    Const endpoint = "https://api.openai.com/v1/completions"
+    Const model = "text-davinci-003"
+    prompt = data
+    
+    Const max_tokens As String = "1024"
+    Const temperature As String = "0.5"
+    
+    Dim http As MSXML2.XMLHTTP60 'required reference Microsoft XML v6,
+    Set http = New MSXML2.XMLHTTP60
+    
+    Dim requestBody As String
+    requestBody = "{" & _
+           """model"": """ & model & """," & _
+           """prompt"": """ & prompt & """," & _
+           """max_tokens"": " & max_tokens & "," & _
+           """temperature"": " & temperature & _
+           "}"
+    
+    With http
+        .Open "POST", endpoint, False
+        .setRequestHeader "Content-Type", "application/json"
+        .setRequestHeader "Authorization", "Bearer " & api_key
+        .send (requestBody)
+    End With
+'    MsgBox (http.Status)
+    Dim response As String
+    response = http.responseText
+    k = writeResponse(ws, response)
+  
+End Sub
+
+Function writeResponse(ws As Worksheet, response As String)
+'   clean response text
+    response = ExtractTextElement(response)
+    
+'    clean existing text
+    ws.Rows("9:" & ws.Rows.Count).Clear
+    
+'split responses into individual responses and those into excel cells
+    Dim response_line() As String
+'    ws.Cells(5, "A").Value = response
+    response_line = Split(response, "~~")
+    Dim i As Long
+    Dim j As Long
+    j = 9
+    For i = LBound(response_line) To UBound(response_line)
+         ws.Cells(j, "B").Value = response_line(i)
+         j = j + 1
+    Next i
+    
+End Function
+
+
+Function ExtractTextElement(strResp As String)
+
+    Dim responseText As String
+    Dim jsonObject As Object
+    
+    responseText = strResp
+    responseText = Replace(responseText, "\n\n", "~~")
+    
+    Set jsonObject = JsonConverter.ParseJson(responseText)
+    
+    Dim textElement As String
+    textElement = jsonObject("choices")(1)("text")
+    
+    ExtractTextElement = textElement
+    
+End Function
